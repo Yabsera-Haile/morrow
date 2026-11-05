@@ -1,7 +1,9 @@
 package app.morrow.diary.ui.settings
 
+import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,20 +12,32 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
@@ -31,24 +45,105 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.morrow.diary.BuildConfig
 import app.morrow.diary.R
+import app.morrow.diary.data.prefs.AutoLock
 import app.morrow.diary.data.prefs.ThemeMode
 import app.morrow.diary.ui.components.MorrowPage
 import app.morrow.diary.ui.components.SubpageHeader
+import app.morrow.diary.ui.icons.MorrowIcons
+import app.morrow.diary.ui.lock.canUseFingerprint
+import app.morrow.diary.ui.lock.enrollFingerprint
 import app.morrow.diary.ui.theme.Morrow
 import app.morrow.diary.ui.theme.MorrowType
+import kotlinx.coroutines.launch
 
-/** First slice of Settings: the Display group. Reminders, security and backup come with their milestones. */
+/** Security and Display for now. Reminders, day & week, and backup arrive with their milestones. */
 @Composable
-fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit) {
+fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onChangePin: () -> Unit) {
     val settings by viewModel.settings.collectAsStateWithLifecycle()
+    val info by viewModel.lockInfo.collectAsStateWithLifecycle()
     val s = settings ?: return
     val c = Morrow.colors
+    val context = LocalContext.current
+    val activity = LocalActivity.current as FragmentActivity
+    val scope = rememberCoroutineScope()
+    var showAutoLock by remember { mutableStateOf(false) }
+
+    val fingerprintAvailable = remember { canUseFingerprint(context) }
+    val fingerprintOn = s.fingerprintUnlock && info.hasFingerprint
+    val enrollTitle = stringResource(R.string.fingerprint_enroll_title)
+    val enrollSubtitle = stringResource(R.string.fingerprint_enroll_subtitle)
+    val cancel = stringResource(R.string.cancel)
 
     MorrowPage {
         SubpageHeader(stringResource(R.string.settings_title), onBack)
+
+        if (info.starterPin) {
+            Row(
+                Modifier
+                    .padding(start = 16.dp, end = 16.dp, top = 18.dp)
+                    .fillMaxWidth()
+                    .background(c.card, RoundedCornerShape(16.dp))
+                    .padding(start = 16.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(MorrowIcons.Lock, contentDescription = null, tint = c.accent, modifier = Modifier.size(20.dp))
+                Text(
+                    stringResource(R.string.settings_starter_pin),
+                    style = MorrowType.small,
+                    color = c.ink,
+                    modifier = Modifier.weight(1f).padding(horizontal = 12.dp),
+                )
+                TextButton(onClick = onChangePin) {
+                    Text(stringResource(R.string.settings_change), style = MorrowType.button, color = c.accent)
+                }
+            }
+        }
+
+        GroupLabel(stringResource(R.string.settings_security))
+        SettingsGroup {
+            NavRow(stringResource(R.string.settings_change_pin), stringResource(R.string.settings_change_pin_sub), onClick = onChangePin)
+            HorizontalDivider(color = c.hairline)
+            SwitchRow(
+                label = stringResource(R.string.settings_fingerprint),
+                subtitle = stringResource(
+                    when {
+                        !fingerprintAvailable -> R.string.settings_fingerprint_unavailable
+                        fingerprintOn -> R.string.settings_fingerprint_on
+                        else -> R.string.settings_fingerprint_off
+                    },
+                ),
+                checked = fingerprintOn,
+                enabled = fingerprintAvailable || fingerprintOn,
+                onChange = { wantOn ->
+                    if (!wantOn) {
+                        viewModel.disableFingerprint()
+                    } else {
+                        scope.launch {
+                            if (activity.enrollFingerprint(viewModel.lock, enrollTitle, enrollSubtitle, cancel)) viewModel.fingerprintEnabled()
+                        }
+                    }
+                },
+            )
+            HorizontalDivider(color = c.hairline)
+            NavRow(stringResource(R.string.settings_auto_lock), value = stringResource(s.autoLock.label()), onClick = { showAutoLock = true })
+            HorizontalDivider(color = c.hairline)
+            SwitchRow(
+                label = stringResource(R.string.settings_hide_recents),
+                subtitle = stringResource(R.string.settings_hide_recents_sub),
+                checked = s.hideInRecents,
+                onChange = viewModel::setHideInRecents,
+            )
+        }
+        Text(
+            stringResource(R.string.settings_security_note),
+            style = MorrowType.caption,
+            color = c.muted,
+            modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 8.dp),
+        )
 
         GroupLabel(stringResource(R.string.settings_display))
         SettingsGroup {
@@ -57,9 +152,9 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit) {
                 ThemePicker(s.theme, viewModel::setTheme)
             }
             HorizontalDivider(color = c.hairline)
-            SwitchRow(stringResource(R.string.settings_daily_quote), s.showQuote, viewModel::setShowQuote)
+            SwitchRow(stringResource(R.string.settings_daily_quote), checked = s.showQuote, onChange = viewModel::setShowQuote)
             HorizontalDivider(color = c.hairline)
-            SwitchRow(stringResource(R.string.settings_show_stats), s.showStats, viewModel::setShowStats)
+            SwitchRow(stringResource(R.string.settings_show_stats), checked = s.showStats, onChange = viewModel::setShowStats)
         }
 
         Column(
@@ -76,6 +171,55 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit) {
             )
         }
     }
+
+    if (showAutoLock) {
+        AutoLockDialog(
+            selected = s.autoLock,
+            onSelect = {
+                viewModel.setAutoLock(it)
+                showAutoLock = false
+            },
+            onDismiss = { showAutoLock = false },
+        )
+    }
+}
+
+private fun AutoLock.label(): Int = when (this) {
+    AutoLock.IMMEDIATELY -> R.string.auto_lock_immediately
+    AutoLock.THIRTY_SECONDS -> R.string.auto_lock_30s
+    AutoLock.ONE_MINUTE -> R.string.auto_lock_1m
+    AutoLock.FIVE_MINUTES -> R.string.auto_lock_5m
+}
+
+@Composable
+private fun AutoLockDialog(selected: AutoLock, onSelect: (AutoLock) -> Unit, onDismiss: () -> Unit) {
+    val c = Morrow.colors
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel), color = c.accent) } },
+        title = { Text(stringResource(R.string.settings_auto_lock), style = MorrowType.sectionTitle) },
+        text = {
+            Column(Modifier.selectableGroup()) {
+                AutoLock.entries.forEach { option ->
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 48.dp)
+                            .selectable(selected = option == selected, role = Role.RadioButton, onClick = { onSelect(option) }),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        RadioButton(
+                            selected = option == selected,
+                            onClick = null,
+                            colors = RadioButtonDefaults.colors(selectedColor = c.accent, unselectedColor = c.emptyRing),
+                        )
+                        Text(stringResource(option.label()), style = MorrowType.body, color = c.ink, modifier = Modifier.padding(start = 12.dp))
+                    }
+                }
+            }
+        },
+        containerColor = c.paper,
+    )
 }
 
 @Composable
@@ -102,20 +246,51 @@ private fun SettingsGroup(content: @Composable () -> Unit) {
 }
 
 @Composable
-private fun SwitchRow(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+private fun NavRow(label: String, subtitle: String? = null, value: String? = null, onClick: () -> Unit) {
     val c = Morrow.colors
     Row(
         Modifier
             .fillMaxWidth()
             .heightIn(min = 60.dp)
-            .toggleable(value = checked, role = Role.Switch, onValueChange = onChange)
-            .padding(start = 16.dp, end = 12.dp),
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(start = 16.dp, end = 14.dp, top = 10.dp, bottom = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(label, style = MorrowType.bodyMedium, color = c.ink, modifier = Modifier.weight(1f))
+        Column(Modifier.weight(1f)) {
+            Text(label, style = MorrowType.bodyMedium, color = c.ink)
+            subtitle?.let { Text(it, style = MorrowType.caption, color = c.muted, modifier = Modifier.padding(top = 2.dp)) }
+        }
+        value?.let { Text(it, style = MorrowType.small, color = c.muted, modifier = Modifier.padding(start = 8.dp)) }
+        Icon(MorrowIcons.ChevronRight, contentDescription = null, tint = c.muted, modifier = Modifier.padding(start = 6.dp).size(18.dp))
+    }
+}
+
+@Composable
+private fun SwitchRow(
+    label: String,
+    subtitle: String? = null,
+    checked: Boolean,
+    enabled: Boolean = true,
+    onChange: (Boolean) -> Unit,
+) {
+    val c = Morrow.colors
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .heightIn(min = 60.dp)
+            .toggleable(value = checked, enabled = enabled, role = Role.Switch, onValueChange = onChange)
+            .padding(start = 16.dp, end = 12.dp, top = 10.dp, bottom = 10.dp)
+            .alpha(if (enabled) 1f else 0.5f),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(label, style = MorrowType.bodyMedium, color = c.ink)
+            subtitle?.let { Text(it, style = MorrowType.caption, color = c.muted, modifier = Modifier.padding(top = 2.dp)) }
+        }
         Switch(
             checked = checked,
             onCheckedChange = null, // the whole row toggles
+            enabled = enabled,
             colors = SwitchDefaults.colors(
                 checkedTrackColor = c.accent,
                 checkedThumbColor = c.onAccent,
@@ -123,6 +298,7 @@ private fun SwitchRow(label: String, checked: Boolean, onChange: (Boolean) -> Un
                 uncheckedThumbColor = c.onAccent,
                 uncheckedBorderColor = Color.Transparent,
             ),
+            modifier = Modifier.padding(start = 8.dp),
         )
     }
 }

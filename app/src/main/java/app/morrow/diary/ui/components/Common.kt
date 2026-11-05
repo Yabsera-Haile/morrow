@@ -49,12 +49,17 @@ fun MorrowPage(modifier: Modifier = Modifier, content: @Composable ColumnScope.(
 
 /** "‹ Today" back link plus a large serif title, as on Journal, Week review and Settings. */
 @Composable
-fun SubpageHeader(title: String, onBack: () -> Unit, trailing: @Composable () -> Unit = {}) {
+fun SubpageHeader(
+    title: String,
+    onBack: () -> Unit,
+    backLabel: String = stringResource(R.string.back_to_today),
+    trailing: @Composable () -> Unit = {},
+) {
     val c = Morrow.colors
     Column(Modifier.padding(start = 16.dp, end = 24.dp, top = 12.dp)) {
         TextButton(onClick = onBack) {
             Icon(MorrowIcons.ChevronLeft, contentDescription = null, tint = c.ink, modifier = Modifier.size(20.dp))
-            Text(stringResource(R.string.back_to_today), style = MorrowType.bodyMedium, color = c.ink, modifier = Modifier.padding(start = 2.dp))
+            Text(backLabel, style = MorrowType.bodyMedium, color = c.ink, modifier = Modifier.padding(start = 2.dp))
         }
         Row(
             Modifier.fillMaxWidth().padding(start = 8.dp, top = 4.dp),

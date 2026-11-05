@@ -22,9 +22,11 @@ Every build also runs `verify<Variant>NoNetwork`, which fails if any network per
 
 ```
 app/src/main/java/app/morrow/diary/
-  ui/        theme · icons · today · journal · week · settings · navigation
+  ui/        theme · icons · lock (lock screen, PIN pad, change PIN, fingerprint prompts) ·
+             today · journal · week · settings · navigation
   domain/    DayClock (4 AM day boundary) · QuoteOfTheDay
-  data/      Room database (SQLCipher-encrypted) · DAOs · settings store · DiaryRepository
-  security/  KeyVault (database key, wrapped by the Android Keystore)
+  data/      Room database (SQLCipher-encrypted) · DAOs · settings store · DiaryRepository · DiarySession
+  security/  KeyVault (PIN and fingerprint slots for the database key) ·
+             LockManager (unlock, auto-lock, wrong-PIN limits) · PinPolicy
 app/schemas/ Room schema history, for future migrations
 ```
