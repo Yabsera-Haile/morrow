@@ -18,6 +18,10 @@ The debug APK ends up in `%LOCALAPPDATA%\MorrowBuild\app\outputs\apk\debug\app-d
 
 Every build also runs `verify<Variant>NoNetwork`, which fails if any network permission ends up in the app.
 
+Debug builds have a **Developer** section at the bottom of Settings with "Add sample days", which fills
+the last three days with goals, plans and notes so you can try "From last night". It lives in
+`app/src/debug`; release builds get the empty twin in `app/src/release`, so it never ships.
+
 ## Layout
 
 ```

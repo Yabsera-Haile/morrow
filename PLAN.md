@@ -165,7 +165,7 @@ Settings (reminder times, theme, the quote list, etc.) live in a separate small 
 
 1. ✅ **Foundation**: project setup, theme and fonts, navigation, encrypted database, data model
 2. ✅ **Lock**: PIN pad, fingerprint, auto-lock, hidden from Recents, starter PIN
-3. **Morning**: goals list (add / edit / reorder / delete), "From last night" transfer card, daily quote
+3. ✅ **Morning**: goals list (add / edit / reorder / delete), "From last night" transfer card, daily quote
 4. **Evening**: check-off, → Tomorrow, notes, plans, Done for today, autosave
 5. **Reminders**: settings screen, scheduled reminders, deep links, smart skip, reschedule on reboot
 6. **Week review**: stats, streaks, reflection, next week's focus

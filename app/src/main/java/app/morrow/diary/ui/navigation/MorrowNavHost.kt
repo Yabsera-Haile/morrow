@@ -32,6 +32,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import app.morrow.diary.AppContainer
+import app.morrow.diary.DebugTools
 import app.morrow.diary.R
 import app.morrow.diary.data.DiarySession
 import app.morrow.diary.data.prefs.MorrowSettings
@@ -48,6 +49,7 @@ import app.morrow.diary.ui.theme.MorrowType
 import app.morrow.diary.ui.today.TodayScreen
 import app.morrow.diary.ui.today.TodayViewModel
 import app.morrow.diary.ui.week.WeekScreen
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 object Routes {
@@ -81,7 +83,7 @@ private fun UnlockedApp(container: AppContainer, session: DiarySession, settings
     val owner = remember(session) { SessionViewModels() }
     DisposableEffect(owner) { onDispose { owner.viewModelStore.clear() } }
     CompositionLocalProvider(LocalViewModelStoreOwner provides owner) {
-        MorrowNavHost(container)
+        MorrowNavHost(container, session)
         FingerprintOffer(container, settings)
     }
 }
@@ -91,7 +93,7 @@ private class SessionViewModels : ViewModelStoreOwner {
 }
 
 @Composable
-private fun MorrowNavHost(container: AppContainer) {
+private fun MorrowNavHost(container: AppContainer, session: DiarySession) {
     val nav = rememberNavController()
     val back: () -> Unit = { nav.popBackStack() }
 
@@ -114,7 +116,7 @@ private fun MorrowNavHost(container: AppContainer) {
     ) {
         composable(Routes.TODAY) {
             TodayScreen(
-                viewModel = viewModel { TodayViewModel(container.settings, container.dayClock) },
+                viewModel = viewModel { TodayViewModel(container.settings, container.dayClock, session.diary) },
                 onOpenJournal = { nav.navigate(Routes.JOURNAL) },
                 onOpenSettings = { nav.navigate(Routes.SETTINGS) },
             )
@@ -126,10 +128,20 @@ private fun MorrowNavHost(container: AppContainer) {
             WeekScreen(onBack = back)
         }
         composable(Routes.SETTINGS) {
+            val scope = rememberCoroutineScope()
             SettingsScreen(
                 viewModel = viewModel { SettingsViewModel(container.settings, container.lock) },
                 onBack = back,
                 onChangePin = { nav.navigate(Routes.changePin()) },
+                onAddSampleDays = if (!DebugTools.ENABLED) null else {
+                    {
+                        scope.launch {
+                            val s = container.settings.settings.first()
+                            DebugTools.addSampleDays(session, container.dayClock.today(s.dayStartsAt))
+                            back()
+                        }
+                    }
+                },
             )
         }
         composable(

@@ -1,6 +1,7 @@
 package app.morrow.diary.data.db
 
 import android.content.Context
+import androidx.room.AutoMigration
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
@@ -9,8 +10,12 @@ import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
 
 @Database(
     entities = [DayEntity::class, GoalEntity::class, PlanEntity::class, WeekReviewEntity::class, WeekFocusEntity::class],
-    version = 1,
+    version = 2,
     exportSchema = true,
+    autoMigrations = [
+        // 2: goals remember which earlier goal they were carried over from.
+        AutoMigration(from = 1, to = 2),
+    ],
 )
 @TypeConverters(Converters::class)
 abstract class MorrowDatabase : RoomDatabase() {

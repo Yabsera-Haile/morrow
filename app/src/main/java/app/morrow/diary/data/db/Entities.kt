@@ -1,6 +1,7 @@
 package app.morrow.diary.data.db
 
 import androidx.room.ColumnInfo
+import androidx.room.Embedded
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
@@ -33,8 +34,9 @@ enum class GoalOrigin {
     tableName = "goals",
     foreignKeys = [
         ForeignKey(entity = DayEntity::class, parentColumns = ["date"], childColumns = ["date"], onDelete = ForeignKey.CASCADE),
+        ForeignKey(entity = GoalEntity::class, parentColumns = ["id"], childColumns = ["carried_from_goal_id"], onDelete = ForeignKey.SET_NULL),
     ],
-    indices = [Index("date")],
+    indices = [Index("date"), Index("carried_from_goal_id")],
 )
 data class GoalEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
@@ -44,6 +46,14 @@ data class GoalEntity(
     val done: Boolean = false,
     val origin: GoalOrigin = GoalOrigin.MANUAL,
     @ColumnInfo(name = "created_at") val createdAt: Instant,
+    /** For [GoalOrigin.CARRIED]: the unfinished goal from an earlier day that this one continues. */
+    @ColumnInfo(name = "carried_from_goal_id") val carriedFromGoalId: Long? = null,
+)
+
+/** An unfinished goal from an earlier day, and whether it has already been added to a later day. */
+data class UnfinishedGoal(
+    @Embedded val goal: GoalEntity,
+    @ColumnInfo(name = "carried") val carried: Boolean,
 )
 
 /** A plan written on the evening of `writtenOn`, meant for the next day. */

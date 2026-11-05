@@ -62,7 +62,12 @@ import kotlinx.coroutines.launch
 
 /** Security and Display for now. Reminders, day & week, and backup arrive with their milestones. */
 @Composable
-fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onChangePin: () -> Unit) {
+fun SettingsScreen(
+    viewModel: SettingsViewModel,
+    onBack: () -> Unit,
+    onChangePin: () -> Unit,
+    onAddSampleDays: (() -> Unit)? = null,
+) {
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val info by viewModel.lockInfo.collectAsStateWithLifecycle()
     val s = settings ?: return
@@ -155,6 +160,13 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onChangePin
             SwitchRow(stringResource(R.string.settings_daily_quote), checked = s.showQuote, onChange = viewModel::setShowQuote)
             HorizontalDivider(color = c.hairline)
             SwitchRow(stringResource(R.string.settings_show_stats), checked = s.showStats, onChange = viewModel::setShowStats)
+        }
+
+        if (onAddSampleDays != null) {
+            GroupLabel("Developer (debug builds only)")
+            SettingsGroup {
+                NavRow("Add sample days", "Fills the last 3 days with goals, plans and notes", onClick = onAddSampleDays)
+            }
         }
 
         Column(

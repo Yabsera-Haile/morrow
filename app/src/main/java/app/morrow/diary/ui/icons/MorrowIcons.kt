@@ -21,6 +21,7 @@ object MorrowIcons {
     }
     val Plus by lazy { stroke("Plus", "M12 5v14M5 12h14") }
     val Check by lazy { stroke("Check", "M5 12.5l4.5 4.5L19 7.5") }
+    val CheckBold by lazy { stroke("CheckBold", "M5 12.5l4.5 4.5L19 7.5", strokeWidth = 2.6f) }
     val ArrowRight by lazy { stroke("ArrowRight", "M5 12h14M13 6l6 6-6 6") }
     val ArrowDown by lazy { stroke("ArrowDown", "M12 5v14M6 13l6 6 6-6") }
     val ChevronLeft by lazy { stroke("ChevronLeft", "M15 5l-7 7 7 7") }

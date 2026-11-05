@@ -39,6 +39,17 @@ interface DayDao {
     )
     suspend fun latestUsedBefore(before: LocalDate): DayEntity?
 
+    /** Live version of [latestUsedBefore], date only. */
+    @Query(
+        """
+        SELECT MAX(date) FROM days
+        WHERE date < :before
+          AND (EXISTS (SELECT 1 FROM goals WHERE goals.date = days.date)
+               OR EXISTS (SELECT 1 FROM plans WHERE plans.written_on = days.date))
+        """,
+    )
+    fun observeLatestUsedBefore(before: LocalDate): Flow<LocalDate?>
+
     @Query("SELECT * FROM days WHERE date BETWEEN :from AND :to ORDER BY date")
     fun observeRange(from: LocalDate, to: LocalDate): Flow<List<DayEntity>>
 }
@@ -77,6 +88,38 @@ interface GoalDao {
 
     @Query("SELECT * FROM goals WHERE text LIKE '%' || :query || '%' ORDER BY date DESC")
     suspend fun search(query: String): List<GoalEntity>
+
+    @Query("SELECT * FROM goals WHERE id = :id")
+    suspend fun get(id: Long): GoalEntity?
+
+    @Query("DELETE FROM goals WHERE id IN (:ids)")
+    suspend fun deleteAll(ids: List<Long>)
+
+    /**
+     * Not-done goals of [date], minus the ones already sent on as a plan via "→ Tomorrow"
+     * (those show up as plans instead). `carried` says whether one was already added to a later day.
+     */
+    @Query(
+        """
+        SELECT g.*, EXISTS (SELECT 1 FROM goals c WHERE c.carried_from_goal_id = g.id) AS carried
+        FROM goals g
+        WHERE g.date = :date AND g.done = 0
+          AND NOT EXISTS (SELECT 1 FROM plans p WHERE p.source_goal_id = g.id)
+        ORDER BY g.position, g.id
+        """,
+    )
+    fun observeUnfinishedNotForwarded(date: LocalDate): Flow<List<UnfinishedGoal>>
+
+    @Query("SELECT id FROM goals WHERE carried_from_goal_id = :goalId")
+    suspend fun carriedFrom(goalId: Long): List<Long>
+
+    @Query("UPDATE goals SET carried_from_goal_id = :goalId WHERE id IN (:ids)")
+    suspend fun relinkCarried(ids: List<Long>, goalId: Long)
+
+    @Transaction
+    suspend fun reorder(idsInOrder: List<Long>) {
+        idsInOrder.forEachIndexed { position, id -> move(id, position) }
+    }
 }
 
 @Dao
@@ -101,6 +144,21 @@ interface PlanDao {
 
     @Query("SELECT * FROM plans WHERE text LIKE '%' || :query || '%' ORDER BY written_on DESC")
     suspend fun search(query: String): List<PlanEntity>
+
+    @Query("SELECT * FROM plans WHERE id = :id")
+    suspend fun get(id: Long): PlanEntity?
+
+    @Query("SELECT id FROM plans WHERE transferred_to_goal_id = :goalId")
+    suspend fun transferredTo(goalId: Long): List<Long>
+
+    @Query("SELECT id FROM plans WHERE source_goal_id = :goalId")
+    suspend fun fromGoal(goalId: Long): List<Long>
+
+    @Query("UPDATE plans SET transferred_to_goal_id = :goalId WHERE id IN (:ids)")
+    suspend fun relinkTransferred(ids: List<Long>, goalId: Long)
+
+    @Query("UPDATE plans SET source_goal_id = :goalId WHERE id IN (:ids)")
+    suspend fun relinkSource(ids: List<Long>, goalId: Long)
 }
 
 @Dao

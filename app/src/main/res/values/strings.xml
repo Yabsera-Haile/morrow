@@ -10,7 +10,28 @@
     <string name="greeting_afternoon">Good afternoon. How is today going?</string>
     <string name="greeting_evening">Good evening. How did today go?</string>
     <string name="today_goals_title">Today’s goals</string>
-    <string name="today_goals_coming">Your goals, last night’s plans and the evening check-in arrive in the next builds.</string>
+    <string name="today_goals_count">%1$d of %2$d done</string>
+    <string name="add_goal_placeholder">Add a goal…</string>
+    <string name="add_goal_hint">Enter adds another · paste a list to add several</string>
+    <string name="cd_add_goal">Add goal</string>
+    <string name="goal_deleted">Goal deleted</string>
+    <string name="undo">Undo</string>
+    <string name="action_edit">Edit</string>
+    <string name="action_delete">Delete</string>
+    <string name="action_move_up">Move up</string>
+    <string name="action_move_down">Move down</string>
+    <string name="evening_footer">Evening check-in at %1$s</string>
+
+    <!-- From last night -->
+    <string name="carry_from_last_night">From last night</string>
+    <string name="carry_from_day">From %1$s</string>
+    <string name="carry_not_done_yesterday">Not done yesterday</string>
+    <string name="carry_not_done_on">Not done on %1$s</string>
+    <string name="carry_transfer_all">Transfer all to today</string>
+    <string name="carry_transfer_rest">Transfer the rest (%1$d)</string>
+    <string name="carry_added">Added</string>
+    <string name="cd_add_to_today">Add “%1$s” to today</string>
+    <string name="carry_all_added">Last night’s plans are on today’s list</string>
 
     <!-- Shared -->
     <string name="back_to_today">Today</string>
