@@ -88,6 +88,7 @@ fun GoalList(
     onDelete: (GoalEntity) -> Unit,
     onReorder: (List<Long>) -> Unit,
     modifier: Modifier = Modifier,
+    trailing: (@Composable (GoalEntity) -> Unit)? = null,
 ) {
     val haptics = LocalHapticFeedback.current
     val dbOrder = goals.map { it.id }
@@ -137,6 +138,7 @@ fun GoalList(
                         onRename(goal, text)
                     },
                     onDelete = { onDelete(goal) },
+                    trailing = trailing?.let { content -> { content(goal) } },
                     modifier = Modifier
                         .onSizeChanged { heights[id] = it.height }
                         .zIndex(if (isDragging) 1f else 0f)
@@ -212,6 +214,7 @@ private fun GoalRow(
     onFinishEdit: (String) -> Unit,
     onDelete: () -> Unit,
     modifier: Modifier = Modifier,
+    trailing: (@Composable () -> Unit)? = null,
 ) {
     val c = Morrow.colors
     val scope = rememberCoroutineScope()
@@ -281,6 +284,7 @@ private fun GoalRow(
                         .clickable(onClickLabel = stringResource(R.string.action_edit), onClick = onStartEdit)
                         .padding(vertical = 13.dp),
                 )
+                trailing?.invoke()
             }
         }
     }
@@ -350,11 +354,17 @@ private fun InlineEdit(initial: String, onDone: (String) -> Unit, modifier: Modi
  * pasting several lines adds them all.
  */
 @Composable
-fun AddGoalField(onAdd: (List<String>) -> Unit, requestFocus: Boolean, onFocusRequested: () -> Unit, modifier: Modifier = Modifier) {
+fun AddGoalField(
+    onAdd: (List<String>) -> Unit,
+    requestFocus: Boolean,
+    onFocusRequested: () -> Unit,
+    modifier: Modifier = Modifier,
+    placeholder: String = stringResource(R.string.add_goal_placeholder),
+    addLabel: String = stringResource(R.string.cd_add_goal),
+) {
     val c = Morrow.colors
     var value by remember { mutableStateOf(TextFieldValue("")) }
     val focus = remember { FocusRequester() }
-    val placeholder = stringResource(R.string.add_goal_placeholder)
 
     LaunchedEffect(requestFocus) {
         if (requestFocus) {
@@ -383,10 +393,10 @@ fun AddGoalField(onAdd: (List<String>) -> Unit, requestFocus: Boolean, onFocusRe
             Modifier
                 .offset(x = (-10).dp)
                 .size(44.dp)
-                .clickable(role = Role.Button, onClickLabel = stringResource(R.string.cd_add_goal)) { addTyped() },
+                .clickable(role = Role.Button, onClickLabel = addLabel) { addTyped() },
             contentAlignment = Alignment.Center,
         ) {
-            Icon(MorrowIcons.Plus, contentDescription = stringResource(R.string.cd_add_goal), tint = c.accent, modifier = Modifier.size(22.dp))
+            Icon(MorrowIcons.Plus, contentDescription = addLabel, tint = c.accent, modifier = Modifier.size(22.dp))
         }
         BasicTextField(
             value = value,

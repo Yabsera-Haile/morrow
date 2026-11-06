@@ -6,10 +6,12 @@ import app.morrow.diary.data.CarryOver
 import app.morrow.diary.data.DeletedGoal
 import app.morrow.diary.data.DiaryRepository
 import app.morrow.diary.data.db.GoalEntity
+import app.morrow.diary.data.db.PlanEntity
 import app.morrow.diary.data.prefs.SettingsStore
 import app.morrow.diary.domain.DayClock
 import app.morrow.diary.domain.DayPhase
 import app.morrow.diary.domain.QuoteOfTheDay
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
@@ -27,6 +29,8 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.time.LocalDate
 import java.time.LocalTime
 
@@ -39,13 +43,19 @@ data class TodayHeader(
 
 sealed interface TodayEvent {
     data class GoalDeleted(val deleted: DeletedGoal) : TodayEvent
+    data class PlanDeleted(val plan: PlanEntity) : TodayEvent
 }
 
+/**
+ * Today, morning and evening. [persistScope] outlives this ViewModel, so a note being typed when
+ * the app locks still gets saved (the database closes a moment after locking, not instantly).
+ */
 @OptIn(ExperimentalCoroutinesApi::class)
 class TodayViewModel(
     settings: SettingsStore,
     dayClock: DayClock,
     private val diary: DiaryRepository,
+    private val persistScope: CoroutineScope,
 ) : ViewModel() {
 
     /** Re-evaluates once a minute, so the greeting and the day roll over while the app is open. */
@@ -69,11 +79,18 @@ class TodayViewModel(
 
     private val dates: Flow<LocalDate> = header.filterNotNull().map { it.date }.distinctUntilChanged()
 
-    val goals: StateFlow<List<GoalEntity>?> =
-        dates.flatMapLatest { diary.observeGoals(it) }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    private fun <T> perDay(source: (LocalDate) -> Flow<T>): StateFlow<T?> =
+        dates.flatMapLatest(source).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    val carryOver: StateFlow<CarryOver?> =
-        dates.flatMapLatest { diary.observeCarryOver(it) }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    val goals: StateFlow<List<GoalEntity>?> = perDay { diary.observeGoals(it) }
+    val carryOver: StateFlow<CarryOver?> = perDay { diary.observeCarryOver(it) }
+    /** The saved note; null while it's still loading (an empty note is ""). */
+    val savedNote: StateFlow<String?> = perDay { date -> diary.observeDay(date).map { it?.note ?: "" } }
+
+    /** Whether "Done for today" was pressed; null while loading. */
+    val checkedIn: StateFlow<Boolean?> = perDay { date -> diary.observeDay(date).map { it?.checkinDoneAt != null } }
+
+    val plansForTomorrow: StateFlow<List<PlanEntity>?> = perDay { diary.observePlansWrittenOn(it) }
 
     /** Goals created by transfers since this screen opened, so "Undo" can take them back. */
     private val _transferredNow = MutableStateFlow<List<Long>>(emptyList())
@@ -142,5 +159,45 @@ class TodayViewModel(
 
     private fun trackTransfer(newGoalIds: List<Long>) {
         _transferredNow.value = _transferredNow.value + newGoalIds
+    }
+
+    // ---- Evening -------------------------------------------------------------------------------
+
+    fun sendToTomorrow(goal: GoalEntity) {
+        viewModelScope.launch { diary.sendToTomorrow(goal) }
+    }
+
+    fun addPlans(texts: List<String>) {
+        if (texts.isEmpty()) return
+        withToday { diary.addPlans(it, texts) }
+    }
+
+    fun removePlan(plan: PlanEntity) {
+        viewModelScope.launch {
+            diary.deletePlan(plan.id)?.let { _events.send(TodayEvent.PlanDeleted(it)) }
+        }
+    }
+
+    fun restorePlan(plan: PlanEntity) {
+        viewModelScope.launch { diary.restorePlan(plan) }
+    }
+
+    fun setCheckinDone(done: Boolean) = withToday { diary.setCheckinDone(it, done) }
+
+    /** Saving notes as you type: each change queues a save, and only the newest text is written. */
+    private val noteMutex = Mutex()
+    private var pendingNote: Pair<LocalDate, String>? = null
+
+    fun onNoteChange(text: String) {
+        val today = header.value?.date ?: return
+        pendingNote = today to text
+        persistScope.launch {
+            noteMutex.withLock {
+                val (date, latest) = pendingNote ?: return@withLock
+                pendingNote = null
+                // If the diary locked and closed in the meantime there's nothing left to write to.
+                runCatching { diary.updateNote(date, latest) }
+            }
+        }
     }
 }

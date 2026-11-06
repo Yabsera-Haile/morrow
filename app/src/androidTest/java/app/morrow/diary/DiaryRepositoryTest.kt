@@ -125,6 +125,53 @@ class DiaryRepositoryTest {
         assertFalse(diary.observeCarryOver(thu).first()!!.pendingPlans.any { it.id == plan.id })
     }
 
+    @Test fun tomorrowSendsAGoalOnOnceAndTomorrowsCardShowsItAsAPlan() = runBlocking {
+        val ids = diary.addGoals(wed, listOf("Finish chapter 3", "Call the bank"))
+        val chapter = diary.observeGoals(wed).first().first { it.id == ids[0] }
+
+        val planId = diary.sendToTomorrow(chapter)
+        val again = diary.sendToTomorrow(chapter)
+        assertTrue(planId != null)
+        assertNull(again)
+        assertEquals(listOf("Finish chapter 3"), diary.observePlansWrittenOn(wed).first().map { it.text })
+
+        // Thursday morning: it's a plan now, and only the other goal is "not done yesterday".
+        val carry = diary.observeCarryOver(thu).first()!!
+        assertEquals(listOf("Finish chapter 3"), carry.pendingPlans.map { it.text })
+        assertEquals(listOf("Call the bank"), carry.pendingGoals.map { it.text })
+    }
+
+    @Test fun eveningPlansCanBeAddedRemovedAndRestored() = runBlocking {
+        diary.addPlans(wed, listOf("Book the dentist", "  ", "Run 5k"))
+        val plans = diary.observePlansWrittenOn(wed).first()
+        assertEquals(listOf("Book the dentist", "Run 5k"), plans.map { it.text })
+
+        val removed = diary.deletePlan(plans[0].id)!!
+        assertEquals(listOf("Run 5k"), diary.observePlansWrittenOn(wed).first().map { it.text })
+        diary.restorePlan(removed)
+        assertEquals(listOf("Book the dentist", "Run 5k"), diary.observePlansWrittenOn(wed).first().map { it.text })
+    }
+
+    @Test fun removingASentPlanMakesTheGoalSendableAgain() = runBlocking {
+        val id = diary.addGoals(wed, listOf("Finish chapter 3")).single()
+        val goal = diary.observeGoals(wed).first().single()
+        val planId = diary.sendToTomorrow(goal)!!
+        diary.deletePlan(planId)
+        assertTrue(diary.sendToTomorrow(goal) != null)
+        assertEquals(id, diary.observePlansWrittenOn(wed).first().single().sourceGoalId)
+    }
+
+    @Test fun notesAndCheckinAreSaved() = runBlocking {
+        diary.updateNote(wed, "Invoice is finally out.")
+        diary.setCheckinDone(wed, true)
+        val day = diary.observeDay(wed).first()!!
+        assertEquals("Invoice is finally out.", day.note)
+        assertTrue(day.checkinDoneAt != null)
+
+        diary.setCheckinDone(wed, false)
+        assertNull(diary.observeDay(wed).first()!!.checkinDoneAt)
+    }
+
     @Test fun reorderAndRename() = runBlocking {
         val ids = diary.addGoals(thu, listOf("A", "B", "C"))
         diary.reorderGoals(listOf(ids[2], ids[0], ids[1]))

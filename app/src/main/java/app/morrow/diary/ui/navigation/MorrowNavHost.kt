@@ -116,7 +116,7 @@ private fun MorrowNavHost(container: AppContainer, session: DiarySession) {
     ) {
         composable(Routes.TODAY) {
             TodayScreen(
-                viewModel = viewModel { TodayViewModel(container.settings, container.dayClock, session.diary) },
+                viewModel = viewModel { TodayViewModel(container.settings, container.dayClock, session.diary, container.appScope) },
                 onOpenJournal = { nav.navigate(Routes.JOURNAL) },
                 onOpenSettings = { nav.navigate(Routes.SETTINGS) },
             )

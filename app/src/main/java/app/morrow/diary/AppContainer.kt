@@ -17,7 +17,8 @@ import java.io.File
 /** Wires the app together by hand. Small enough that a dependency-injection library isn't worth it. */
 class AppContainer(context: Context) {
     private val appContext = context.applicationContext
-    private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    /** Lives as long as the app. Used for writes that must finish even if a screen closes. */
+    val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
     val dayClock = DayClock()
 

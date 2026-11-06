@@ -166,7 +166,7 @@ class DiaryRepository(
         if (goalIds.isNotEmpty()) db.goals().deleteAll(goalIds)
     }
 
-    // ---- Evening (used from the next milestone on) ---------------------------------------------
+    // ---- Evening -------------------------------------------------------------------------------
 
     suspend fun updateNote(date: LocalDate, note: String) {
         ensureDay(date)
@@ -180,4 +180,33 @@ class DiaryRepository(
                 PlanEntity(writtenOn = writtenOn, text = text.trim(), position = db.plans().nextPosition(writtenOn), sourceGoalId = sourceGoalId),
             )
         }
+
+    /** Plans for tomorrow, typed in the evening. Blank lines are skipped. */
+    suspend fun addPlans(writtenOn: LocalDate, texts: List<String>): List<Long> = db.withTransaction {
+        texts.map(String::trim).filter(String::isNotEmpty).map { addPlan(writtenOn, it) }
+    }
+
+    /** "→ Tomorrow": copies a not-done goal into tomorrow's plans, once. Returns null if it's already there. */
+    suspend fun sendToTomorrow(goal: GoalEntity): Long? = db.withTransaction {
+        if (db.plans().fromGoal(goal.id).isNotEmpty()) return@withTransaction null
+        addPlan(goal.date, goal.text, sourceGoalId = goal.id)
+    }
+
+    suspend fun deletePlan(id: Long): PlanEntity? = db.withTransaction {
+        val plan = db.plans().get(id) ?: return@withTransaction null
+        db.plans().delete(id)
+        plan
+    }
+
+    suspend fun restorePlan(plan: PlanEntity) = db.withTransaction {
+        ensureDay(plan.writtenOn)
+        db.plans().insert(plan)
+    }
+
+    /** "Done for today". This is what counts for the streak. */
+    suspend fun setCheckinDone(date: LocalDate, done: Boolean) {
+        ensureDay(date)
+        val now = now()
+        db.days().setCheckinDone(date, if (done) now else null, now)
+    }
 }

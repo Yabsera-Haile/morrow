@@ -21,6 +21,27 @@
     <string name="action_move_up">Move up</string>
     <string name="action_move_down">Move down</string>
     <string name="evening_footer">Evening check-in at %1$s</string>
+    <string name="evening_start_now">Start now</string>
+
+    <!-- Evening check-in -->
+    <string name="evening_goals_title">Goals</string>
+    <string name="evening_goals_hint">Tap what you did</string>
+    <string name="evening_no_goals">No goals today. Your notes and tomorrow’s plans still count.</string>
+    <string name="evening_tomorrow">Tomorrow</string>
+    <string name="evening_in_plans">In tomorrow’s plans</string>
+    <string name="cd_send_to_tomorrow">Add “%1$s” to tomorrow’s plans</string>
+    <string name="evening_notes">Notes</string>
+    <string name="evening_notes_placeholder">Anything on your mind…</string>
+    <string name="evening_plans_title">Plans for tomorrow</string>
+    <string name="evening_plans_placeholder">Add a plan for tomorrow…</string>
+    <string name="cd_add_plan">Add plan</string>
+    <string name="cd_remove_plan">Remove “%1$s”</string>
+    <string name="plan_removed">Plan removed</string>
+    <string name="evening_saved">Saved as you type</string>
+    <string name="evening_done_button">Done for today</string>
+    <string name="evening_done_title">Check-in done.</string>
+    <string name="evening_done_body">Your plans will be waiting tomorrow morning.</string>
+    <string name="evening_edit">Edit check-in</string>
 
     <!-- From last night -->
     <string name="carry_from_last_night">From last night</string>
